@@ -22,34 +22,35 @@
 . "$(librelib conf)"
 
 usage() {
-  print "Usage: %s [msg]" "${0##*/}"
-  print "Commit the changes to the package build recipes."
+  print "usage: %s [msg]" "${0##*/}"
+  print "commit the changes to the package build recipes."
   echo
-  prose "The commit messages is generated, unless explicitly given."
+  prose "the commit messages is generated, unless explicitly given."
 }
 
 main() {
   if [[ -w / ]]; then
     error "This program should be run as a regular user"
-    return $EXIT_NOPERMISSION
+    return "$EXIT_NOPERMISSION"
   fi
 
   # parse options
   while getopts 'h' arg; do
     case $arg in
-      h) usage; return $EXIT_SUCCESS;;
-      *) usage >&2; return $EXIT_INVALIDARGUMENT;;
+      h) usage; return "$EXIT_SUCCESS";;
+      *) usage >&2; return "$EXIT_INVALIDARGUMENT";;
     esac
   done
 
   if ! [[ -e ./PKGBUILD ]]; then
     error "PKGBUILD not found"
-    return $EXIT_FAILURE
+    return "$EXIT_FAILURE"
   fi
 
   local repo
   repo="$(basename "$(dirname "$PWD")")"
 
+  local pkgbase pkgver
   # load the PKGBUILD
   load_PKGBUILD
 
@@ -59,10 +60,9 @@ main() {
   if [[ $# -gt 0 ]]; then
     msg="$msg: $1"
   else
-    local new_pkgver new_pkgrel
+    local new_pkgver
     new_pkgver="$pkgver"
-    new_pkgrel="$pkgrel"
-    unset pkgver pkgrel
+    unset pkgver
 
     # load the old PKGBUILD
     touch .librecommit-keep
