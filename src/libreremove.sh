@@ -23,9 +23,11 @@
 
 usage() {
   print "usage: %s [msg]" "${0##*/}"
-  print "commit the changes to the package build recipes."
+  print "remove a package from the repos"
   echo
-  prose "the commit messages is generated, unless explicitly given."
+  prose "remove the current package from abslibre, create a matching commit
+         with the given, or otherwise a generated message, and remove the
+         package from the repo on winston."
 }
 
 main() {
@@ -50,7 +52,7 @@ main() {
   local repo
   repo="$(basename "$(dirname "$PWD")")"
 
-  local pkgbase pkgver
+  local pkgbase pkgname
   # load the PKGBUILD
   load_PKGBUILD
 
@@ -60,38 +62,23 @@ main() {
   if [[ $# -gt 0 ]]; then
     msg="$msg: $1"
   else
-    local new_pkgver
-    new_pkgver="$pkgver"
-    unset pkgver
-
-    # load the old PKGBUILD
-    touch .librecommit-keep
-    git stash push -k -u -q -- ./PKGBUILD >/dev/null
-    if [[ -f ./PKGBUILD ]]; then
-      load_PKGBUILD
-    fi
-    git stash pop -q >/dev/null
-    rm -f .librecommit-keep
-
-    if [[ -z "${pkgver:-}" ]]; then
-      msg="$msg: added"
-    elif [[ "$pkgver" != "$new_pkgver" ]]; then
-      msg="$msg: updated to $new_pkgver"
-    else
-      msg="$msg: rebuilt"
-    fi
+    msg="$msg: removed."
   fi
 
-  git add .
+  local dir
+  dir="$(basename "$PWD")"
+
+  cd ..
+  git rm -r "$dir"
   git status .
   read -p " *** $msg *** Ok? [Y/n] " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     git commit -m"$msg"
-    qbu u .
-    librestage
+    ssh winston.parabola.nu db-repo-remove "$repo" any "${pkgname[@]}"
   else
-    git reset -q HEAD .
+    git reset -q HEAD "$dir"
+    cd "$dir"
   fi
 }
 
