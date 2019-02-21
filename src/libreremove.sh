@@ -70,10 +70,11 @@ main() {
 
   cd ..
   git rm -r "$dir"
-  git status .
+  git status "$dir"
   read -p " *** $msg *** Ok? [Y/n] " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    qbu u ./"$dir"
     git commit -m"$msg"
     ssh winston.parabola.nu db-repo-remove "$repo" any "${pkgname[@]}"
   else

@@ -153,6 +153,18 @@ qbu_enqueue() {
     exit "$EXIT_FAILURE"
   fi
 
+  # PKGBUILD sanity checks
+  local issues
+  issues="$(namcap ./PKGBUILD 2>&1)"
+  if [ -n "$issues" ]; then
+    echo "$issues"
+    read -p " Continue? [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit "$EXIT_FAILURE"
+    fi
+  fi
+
   # arches requested for build
   local chosen=('any')
   [ "$#" -eq 0 ] || chosen=("$@")
