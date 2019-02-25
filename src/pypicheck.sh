@@ -60,9 +60,23 @@ main() {
   local latest
   latest="$(curl -s https://pypi.org/pypi/"$_pkgname"/json | jq -r '.info.version')"
 
-  if [[ "$pkgver" != "$latest" ]]; then
-    warning "%s: pypi version has changed: %s ==> %s" "$_pkgname" "$pkgver" "$latest"
+  if [ -z "$latest" ]; then
+    error "%s: package not found on pypi" "$_pkgname"
+    exit "$EXIT_FAILURE"
   fi
+
+  if [ "$pkgver" == "$latest" ]; then return; fi
+
+  # pypi has a possibly newer version of the package. offer to upgrade!
+  msg "%s: pypi version has changed: %s ==> %s" "$_pkgname" "$pkgver" "$latest"
+
+  read -p " Update? [y/N] " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then return; fi
+
+  sed -i "s/^pkgver=.*/pkgver=$latest/" PKGBUILD
+  sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+  updpkgsums
 }
 
 main "$@"
