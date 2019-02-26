@@ -58,7 +58,7 @@ main() {
   fi
 
   local latest
-  latest="$(curl -s https://pypi.org/pypi/"$_pkgname"/json | jq -r '.info.version')"
+  latest="$(curl -Ls https://pypi.org/pypi/"$_pkgname"/json | jq -r '.info.version')"
 
   if [ -z "$latest" ]; then
     error "%s: package not found on pypi" "$_pkgname"

@@ -165,15 +165,21 @@ qbu_enqueue() {
     fi
   fi
 
-  # arches requested for build
+  local arch=() validpgpkeys=()
+  load_PKGBUILD || exit "$EXIT_FAILURE"
+
+  for key in "${validpgpkeys[@]}"; do
+    if ! gpg --list-keys "$key" &>/dev/null; then
+      read -p " Import missing key $key? [Y/n] " -n 1 -r
+      echo
+      if [[ $REPLY =~ ^[Nn]$ ]]; then exit "$EXIT_FAILURE"; fi
+      gpg --recv-keys "$key" || exit "$EXIT_FAILURE"
+    fi
+  done
+
   local chosen=('any')
   [ "$#" -eq 0 ] || chosen=("$@")
 
-  # arches supported by the package
-  local arch
-  load_PKGBUILD || exit "$EXIT_FAILURE"
-
-  # arches supported by the build environment
   local ARCHES
   load_conf libretools.conf ARCHES || exit "$EXIT_FAILURE"
 
@@ -303,11 +309,9 @@ _notify() {
 
 _build_exit() {
   local res=$?
-  local path="$1"
-  local arch="$2"
 
   local build
-  build="$(printf '%s/%s-%s' "$(basename "$(dirname "$path")")" "$(basename "$path")" "$arch")"
+  build="$(printf '%s/%s-%s' "$(basename "$(dirname "$1")")" "$(basename "$1")" "$2")"
 
   local queued
   queued="$(tsp | grep -c ' queued ')"
@@ -316,7 +320,7 @@ _build_exit() {
     _notify -c success "*[Q${queued}]* ${build//_/\\_}"
   else
     local log
-    log="$(tsp | grep "x $(readlink -f "$path")/ $arch" | awk '{print $3}')"
+    log="$(tsp | grep "x $(readlink -f "$1")/ $2" | awk '{print $3}')"
 
     _notify -c error "*[Q${queued}]* ${build//_/\\_}" -h "string:document:$log"
   fi
@@ -328,43 +332,40 @@ qbu_execute() {
     exit "$EXIT_FAILURE"
   fi
 
-  path="$1"
-  arch="$2"
-
-  trap '_build_exit "$path" "$arch"' EXIT
+  trap '_build_exit "$1" "$2"' EXIT
 
   local res
 
   # clean the librechroot before building
-  sudo librechroot -A "$arch" -n "qbu-$arch" clean-pkgs
+  sudo librechroot -A "$2" -n "qbu-$2" clean-pkgs
   res=$?
 
   if [[ $res -ne 0 ]]; then
     msg "cleaning the chroot has failed -- attempt to recreate..."
-    sudo librechroot -A "$arch" -n "qbu-$arch" delete
-    sudo librechroot -A "$arch" -n "qbu-$arch" -l root delete
-    sudo librechroot -A "$arch" -n "qbu-$arch" make || exit "$EXIT_FAILURE"
-    sudo librechroot -A "$arch" -n "qbu-$arch" clean-pkgs || exit "$EXIT_FAILURE"
+    sudo librechroot -A "$2" -n "qbu-$2" delete
+    sudo librechroot -A "$2" -n "qbu-$2" -l root delete
+    sudo librechroot -A "$2" -n "qbu-$2" make || exit "$EXIT_FAILURE"
+    sudo librechroot -A "$2" -n "qbu-$2" clean-pkgs || exit "$EXIT_FAILURE"
   fi
 
   # update the librechroot before building
-  sudo librechroot -A "$arch" -n "qbu-$arch" update
+  sudo librechroot -A "$2" -n "qbu-$2" update
   res=$?
 
   if [[ $res -ne 0 ]]; then
     msg "updating the chroot has failed -- attempt to recreate..."
-    sudo librechroot -A "$arch" -n "qbu-$arch" delete
-    sudo librechroot -A "$arch" -n "qbu-$arch" -l delete
-    sudo librechroot -A "$arch" -n "qbu-$arch" make || exit "$EXIT_FAILURE"
-    sudo librechroot -A "$arch" -n "qbu-$arch" update || exit "$EXIT_FAILURE"
+    sudo librechroot -A "$2" -n "qbu-$2" delete
+    sudo librechroot -A "$2" -n "qbu-$2" -l delete
+    sudo librechroot -A "$2" -n "qbu-$2" make || exit "$EXIT_FAILURE"
+    sudo librechroot -A "$2" -n "qbu-$2" update || exit "$EXIT_FAILURE"
   fi
 
   # clean the chroot pkg cache
-  sudo librechroot -A "$arch" -n "qbu-$arch" run \
+  sudo librechroot -A "$2" -n "qbu-$2" run \
     find /var/cache/pacman/pkg -type f -delete
 
   # start the build
-  sudo libremakepkg -n "qbu-$arch" || exit "$EXIT_FAILURE"
+  sudo libremakepkg -n "qbu-$2" || exit "$EXIT_FAILURE"
 }
 
 main() {
