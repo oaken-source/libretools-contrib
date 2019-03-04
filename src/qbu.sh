@@ -153,7 +153,15 @@ qbu_enqueue() {
     exit "$EXIT_FAILURE"
   fi
 
-  # PKGBUILD sanity checks
+  # check if the source checksums match
+  if ! makepkg -f --verifysource &>/dev/null; then
+    read -p " Source verification failed. run updpkgsums? [y/N] " -n 1 -r
+    echo
+    if ! [[ $REPLY =~ ^[Yy]$ ]]; then exit "$EXIT_FAILURE"; fi
+    updpkgsums || exit "$EXIT_FAILURE"
+  fi
+
+  # ask namcap for help
   local issues
   issues="$(namcap ./PKGBUILD 2>&1)"
   if [ -n "$issues" ]; then
@@ -168,6 +176,7 @@ qbu_enqueue() {
   local arch=() validpgpkeys=()
   load_PKGBUILD || exit "$EXIT_FAILURE"
 
+  # check if any keys need to be imported
   for key in "${validpgpkeys[@]}"; do
     if ! gpg --list-keys "$key" &>/dev/null; then
       read -p " Import missing key $key? [Y/n] " -n 1 -r
@@ -366,6 +375,8 @@ qbu_execute() {
 
   # start the build
   sudo libremakepkg -n "qbu-$2" || exit "$EXIT_FAILURE"
+
+  exit "$EXIT_SUCCESS"
 }
 
 main() {
