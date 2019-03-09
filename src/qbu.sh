@@ -22,10 +22,10 @@
 . "$(librelib conf)"
 
 usage() {
-  print "usage: %s <operation> [...]" "${0##*/}"
+  print "usage: %s [-h] <operation> [...]" "${0##*/}"
   print "operations:"
   print "    %s l [dir(s)]" "${0##*/}"
-  print "    %s q [arch(es)]" "${0##*/}"
+  print "    %s q [-y] [arch(es)]" "${0##*/}"
   print "    %s u [id(s)] [dir(s)] [*]" "${0##*/}"
   print "    %s c [id(s)] [dir(s)] [-]" "${0##*/}"
   print "    %s k" "${0##*/}"
@@ -153,38 +153,53 @@ qbu_enqueue() {
     exit "$EXIT_FAILURE"
   fi
 
-  # check if the source checksums match
-  if ! makepkg -f --verifysource &>/dev/null; then
-    read -p " Source verification failed. run updpkgsums? [y/N] " -n 1 -r
-    echo
-    if ! [[ $REPLY =~ ^[Yy]$ ]]; then exit "$EXIT_FAILURE"; fi
-    updpkgsums || exit "$EXIT_FAILURE"
-  fi
+  # parse options
+  local yes
+  while getopts 'y' arg; do
+    case "$arg" in
+      y) yes="yes";;
+      *) usage >&2; exit "$EXIT_INVALIDARGUMENT";;
+    esac
+  done
+  local shiftlen=$(( OPTIND - 1 ))
+  shift $shiftlen
 
-  # ask namcap for help
-  local issues
-  issues="$(namcap ./PKGBUILD 2>&1)"
-  if [ -n "$issues" ]; then
-    echo "$issues"
-    read -p " Continue? [y/N] " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      exit "$EXIT_FAILURE"
+  if [ "x$yes" != "xyes" ]; then
+    # check if the source checksums match
+    if ! makepkg -f --verifysource &>/dev/null; then
+      read -p " Source verification failed. run updpkgsums? [y/N] " -n 1 -r
+      echo
+      if ! [[ $REPLY =~ ^[Yy]$ ]]; then exit "$EXIT_FAILURE"; fi
+      updpkgsums || exit "$EXIT_FAILURE"
+    fi
+
+    # ask namcap for help
+    local issues
+    issues="$(namcap ./PKGBUILD 2>&1)"
+    if [ -n "$issues" ]; then
+      echo "$issues"
+      read -p " Continue? [y/N] " -n 1 -r
+      echo
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit "$EXIT_FAILURE"
+      fi
     fi
   fi
 
   local arch=() validpgpkeys=()
   load_PKGBUILD || exit "$EXIT_FAILURE"
 
-  # check if any keys need to be imported
-  for key in "${validpgpkeys[@]}"; do
-    if ! gpg --list-keys "$key" &>/dev/null; then
-      read -p " Import missing key $key? [Y/n] " -n 1 -r
-      echo
-      if [[ $REPLY =~ ^[Nn]$ ]]; then exit "$EXIT_FAILURE"; fi
-      gpg --recv-keys "$key" || exit "$EXIT_FAILURE"
-    fi
-  done
+  if [ "x$yes" != "xyes" ]; then
+    # check if any keys need to be imported
+    for key in "${validpgpkeys[@]}"; do
+      if ! gpg --list-keys "$key" &>/dev/null; then
+        read -p " Import missing key $key? [Y/n] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Nn]$ ]]; then exit "$EXIT_FAILURE"; fi
+        gpg --recv-keys "$key" || exit "$EXIT_FAILURE"
+      fi
+    done
+  fi
 
   local chosen=('any')
   [ "$#" -eq 0 ] || chosen=("$@")
@@ -386,27 +401,32 @@ main() {
   fi
 
   # parse options
+  local op=l
+  local args=()
+
   while getopts 'h' arg; do
     case "$arg" in
       h) usage; return "$EXIT_SUCCESS";;
-      *) usage >&2; exit "$EXIT_INVALIDARGUMENT";;
+      *) args+=("$arg")
     esac
   done
   local shiftlen=$(( OPTIND - 1 ))
   shift $shiftlen
 
-  local op=l
-  local args=()
-
   if [ "$#" -gt 0 ]; then op="$1"; shift; fi
 
   case "$op" in
-    l) qbu_list "$@";;
-    q) qbu_enqueue "$@";;
-    u) qbu_dequeue "$@";;
-    c) qbu_logcat "$@";;
-    k) qbu_kill "$@";;
-    x) qbu_execute "$@";;
+    l) if [ ${#args[@]} -gt 0 ]; then usage >&2; exit "$EXIT_INVALIDARGUMENT"; fi
+       qbu_list "$@";;
+    q) qbu_enqueue "${args[@]}" "$@";;
+    u) if [ ${#args[@]} -gt 0 ]; then usage >&2; exit "$EXIT_INVALIDARGUMENT"; fi
+       qbu_dequeue "$@";;
+    c) if [ ${#args[@]} -gt 0 ]; then usage >&2; exit "$EXIT_INVALIDARGUMENT"; fi
+       qbu_logcat "$@";;
+    k) if [ ${#args[@]} -gt 0 ]; then usage >&2; exit "$EXIT_INVALIDARGUMENT"; fi
+       qbu_kill "$@";;
+    x) if [ ${#args[@]} -gt 0 ]; then usage >&2; exit "$EXIT_INVALIDARGUMENT"; fi
+       qbu_execute "$@";;
     *) usage >&2; exit "$EXIT_INVALIDARGUMENT";;
   esac
 }
