@@ -403,6 +403,9 @@ main() {
     return "$EXIT_NOPERMISSION"
   fi
 
+  # set the socket to the qbu queue
+  export TS_SOCKET="/var/run/user/$(id -u)/qbu.socket"
+
   # parse options
   local op=l
   local args=()
