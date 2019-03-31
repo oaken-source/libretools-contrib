@@ -104,14 +104,14 @@ qbu_list() {
 
   tput bold
   _list_println "ID" "package" "arch" "state" "elapsed"
-  tput sgr0
+  echo -n '[m'
 
   tput setf 3
   for l in "${running[@]}"; do
     IFS=' ' read -r -a args <<< "$(echo "$l" | awk '{print $1, $(NF-1), $(NF), $2}')"
     _list_println "${args[@]}" ""
   done
-  tput sgr0
+  echo -n '[m'
 
   for l in "${queued[@]}"; do
     IFS=' ' read -r -a args <<< "$(echo "$l" | awk '{print $1, $(NF-1), $(NF), $2}')"
@@ -123,19 +123,19 @@ qbu_list() {
     IFS=' ' read -r -a args <<< "$(echo "$l" | awk '{print $1, $(NF-1), $(NF), "failed", $5}')"
     _list_println "${args[@]}"
   done
-  tput sgr0
+  echo -n '[m'
 
   tput setf 2
   for l in "${finished[@]}"; do
     IFS=' ' read -r -a args <<< "$(echo "$l" | awk '{print $1, $(NF-1), $(NF), $2, $5}')"
     _list_println "${args[@]}"
   done
-  tput sgr0
+  echo -n '[m'
 
-  echo -n "running: $(tput setf 3)[${#running[@]}]$(tput sgr0), "
+  echo -n "running: $(tput setf 3)[${#running[@]}]$(echo -n '[m'), "
   echo -n "queued: [${#queued[@]}], "
-  echo -n "failed: $(tput setf 4)[${#failed[@]}]$(tput sgr0), "
-  echo    "finished: $(tput setf 2)[${#finished[@]}]$(tput sgr0)"
+  echo -n "failed: $(tput setf 4)[${#failed[@]}]$(echo -n '[m'), "
+  echo    "finished: $(tput setf 2)[${#finished[@]}]$(echo -n '[m')"
 }
 
 _in_array() {
