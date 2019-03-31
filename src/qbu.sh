@@ -391,6 +391,9 @@ qbu_execute() {
   # start the build
   sudo libremakepkg -n "qbu-$2" || exit "$EXIT_FAILURE"
 
+  # clean the chroot after a successful build
+  sudo librechroot -A "$2" -n "qbu-$2" clean-pkgs
+
   exit "$EXIT_SUCCESS"
 }
 
