@@ -164,11 +164,27 @@ qbu_enqueue() {
   local shiftlen=$(( OPTIND - 1 ))
   shift $shiftlen
 
+  local arch=() validpgpkeys=()
+  load_PKGBUILD || exit "$EXIT_FAILURE"
+
   if [ "x$yes" != "xyes" ]; then
+    # check if any keys need to be imported
+    for key in "${validpgpkeys[@]}"; do
+      if ! gpg --list-keys "$key" &>/dev/null; then
+        read -p " Import missing key $key? [Y/n] " -n 1 -r
+        (( ${#REPLY} == 1 )) && echo
+        if [[ $REPLY =~ ^[Nn]$ ]]; then exit "$EXIT_FAILURE"; fi
+        gpg --recv-keys "$key" || exit "$EXIT_FAILURE"
+      fi
+    done
+
     # check if the source checksums match
-    if ! makepkg -f --verifysource &>/dev/null; then
-      read -p " Source verification failed. run updpkgsums? [y/N] " -n 1 -r
-      echo
+    local makepkg_res
+    if ! makepkg_res="$(makepkg -f --verifysource 2>&1)"; then
+      echo " Source verification failed:"
+      sed 's/^/ | /' <<< "$makepkg_res"
+      read -p " run updpkgsums? [y/N] " -n 1 -r
+      (( ${#REPLY} == 1 )) && echo
       if ! [[ $REPLY =~ ^[Yy]$ ]]; then exit "$EXIT_FAILURE"; fi
       updpkgsums || exit "$EXIT_FAILURE"
     fi
@@ -179,26 +195,11 @@ qbu_enqueue() {
     if [ -n "$issues" ]; then
       echo "$issues"
       read -p " Continue? [y/N] " -n 1 -r
-      echo
+      (( ${#REPLY} == 1 )) && echo
       if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         exit "$EXIT_FAILURE"
       fi
     fi
-  fi
-
-  local arch=() validpgpkeys=()
-  load_PKGBUILD || exit "$EXIT_FAILURE"
-
-  if [ "x$yes" != "xyes" ]; then
-    # check if any keys need to be imported
-    for key in "${validpgpkeys[@]}"; do
-      if ! gpg --list-keys "$key" &>/dev/null; then
-        read -p " Import missing key $key? [Y/n] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Nn]$ ]]; then exit "$EXIT_FAILURE"; fi
-        gpg --recv-keys "$key" || exit "$EXIT_FAILURE"
-      fi
-    done
   fi
 
   local chosen=('any')
