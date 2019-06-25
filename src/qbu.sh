@@ -181,8 +181,8 @@ qbu_enqueue() {
     # check if the source checksums match
     local makepkg_res
     if ! makepkg_res="$(makepkg -f --verifysource 2>&1)"; then
-      echo " Source verification failed:"
-      sed 's/^/ | /' <<< "$makepkg_res"
+      msg "Source verification failed:"
+      sed 's/^/  | /' <<< "$makepkg_res"
       read -p " run updpkgsums? [y/N] " -n 1 -r
       (( ${#REPLY} == 1 )) && echo
       if ! [[ $REPLY =~ ^[Yy]$ ]]; then exit "$EXIT_FAILURE"; fi
@@ -193,7 +193,8 @@ qbu_enqueue() {
     local issues
     issues="$(namcap ./PKGBUILD 2>&1)"
     if [ -n "$issues" ]; then
-      echo "$issues"
+      msg "PKGBUILD issues found:"
+      sed 's/^/  | /' <<< "$issues"
       read -p " Continue? [y/N] " -n 1 -r
       (( ${#REPLY} == 1 )) && echo
       if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -254,9 +255,12 @@ qbu_enqueue() {
   done
 
   # queue build jobs in tsp
+  local jobs=()
   for a in "${builds[@]}"; do
-    tsp "$0" x "$(readlink -f .)/" "$a"
+    jobs+=("$(tsp "$0" x "$(readlink -f .)/" "$a")")
   done
+
+  msg "$(echo "${jobs[@]}")"
 }
 
 qbu_dequeue() {
